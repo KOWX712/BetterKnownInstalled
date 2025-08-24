@@ -152,6 +152,15 @@ process_xml() {
 
     # 4. Remove installOriginator attribute.
     sed -i -E 's/[\r\n ]*installOriginator="[^"]*"//g' "$xml_temp"
+    
+    # 5. Remove isOrphaned attribute if value is true.
+    sed -i 's/isOrphaned="true"//g' "$xml_temp"
+
+    # 6. Remove installInitiatorUninstalled attribute if value is true.
+    sed -i 's/installInitiatorUninstalled="true"//g' "$xml_temp"
+
+    # 7. Change packageSource attribute to PACKAGE_SOURCE_STORE (constant value 2).
+    sed -i 's/packageSource="[^2]"/packageSource="2"/g' "$xml_temp"
   fi
 
   # Rotate backups
