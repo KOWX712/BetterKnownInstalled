@@ -232,16 +232,21 @@ fi
 wait_for_data
 
 # Process packages.xml
-ui_print "Processing $PACKAGES_XML..."
-process_xml "$PACKAGES_XML"
+if [ -f "$PACKAGES_XML" ]; then
+  ui_print "Processing $PACKAGES_XML..."
+  process_xml "$PACKAGES_XML"
+fi
 
 # Process packages-warnings.xml
-ui_print "Processing $WARNINGS_XML..."
-process_xml "$WARNINGS_XML"
+if [ -f "$WARNINGS_XML" ]; then
+  ui_print "Processing $WARNINGS_XML..."
+  process_xml "$WARNINGS_XML"
+fi
 
 # Restore permissions and SELinux context (if applicable)
 ui_print "Restoring permissions and SELinux context..."
 for file in "$PACKAGES_XML" "$WARNINGS_XML"; do
+  [ -f "$file" ] || continue
   chown system:system "$file"
   chmod 640 "$file"
   if command_exists restorecon; then
