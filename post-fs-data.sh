@@ -113,54 +113,35 @@ process_xml() {
     # Modify XML
     ui_print "Starting to modify XML..."
 
-    # Remove any duplicate installer, installInitiator, and installerUid attributes.
-    sed -i -E '
-  :begin
-    s/(([\r\n ]*installer="[^"]*")+)(.*)([\r\n ]*installer="[^"]*")+/\1\3/g
-    t begin
-  :begin2
-    s/(([\r\n ]*installInitiator="[^"]*")+)(.*)([\r\n ]*installInitiator="[^"]*")+/\1\3/g
-    t begin2
-  :begin3
-    s/(([\r\n ]*installerUid(-int)?="[^"]*")+)(.*)([\r\n ]*installerUid(-int)?="[^"]*")+/\1\3/g
-    t begin3
-  ' "$xml_temp"
-
-    # 1. Replace or add installer attribute.
-    sed -i -E '
-    /installer=/ {
-      s/(installer=")[^"]*/\1com.android.vending/g
-    }
-    /installer=/! s/(<package [^>]*)/ \1 installer="com.android.vending"/g
-  ' "$xml_temp"
-
-    # 2. Replace or add installInitiator attribute.
-    sed -i -E '
-    /installInitiator=/ {
-      s/(installInitiator=")[^"]*/\1com.android.vending/g
-    }
-    /installInitiator=/! s/(<package [^>]*)/ \1 installInitiator="com.android.vending"/g
-  ' "$xml_temp"
-
-    # 3. Replace or add installerUid attribute.
-    sed -i -E '
-    /installerUid(-int)?=/ {
-      s/(installerUid(-int)?=")[^"]*/\1'"$vending_uid"'/g
-    }
-    /installerUid(-int)?=/! s/(<package [^>]*)/ \1 installerUid="'"$vending_uid"'"/g
-  ' "$xml_temp"
-
-    # 4. Remove installOriginator attribute.
-    sed -i -E 's/[\r\n ]*installOriginator="[^"]*"//g' "$xml_temp"
-    
-    # 5. Remove isOrphaned attribute if value is true.
-    sed -i 's/isOrphaned="true"//g' "$xml_temp"
-
-    # 6. Remove installInitiatorUninstalled attribute if value is true.
-    sed -i 's/installInitiatorUninstalled="true"//g' "$xml_temp"
-
-    # 7. Change packageSource attribute to PACKAGE_SOURCE_STORE (constant value 2).
-    sed -i 's/packageSource="[^2]"/packageSource="2"/g' "$xml_temp"
+    # Only modify if the package has installer attribute
+    awk -v VENDING_UID="$vending_uid" '
+        BEGIN {
+            RS="</package>"
+            ORS=""
+        }
+        {
+            if ($0 ~ /<package /) {
+                # 1: Handle installer attributes
+                if ($0 ~ /installer=/) {
+                    gsub(/installer="[^"]*"/, "installer=\"com.android.vending\"")
+                    gsub(/installInitiator="[^"]*"/, "installInitiator=\"com.android.vending\"")
+                    gsub(/installerUid-int="[^"]*"/, "installerUid-int=\"" VENDING_UID "\"")
+                    gsub(/installerUid="[^"]*"/, "installerUid=\"" VENDING_UID "\"")
+                    gsub(/[ \r\n\t]+installOriginator="[^"]*"/, "")
+                    gsub(/[ \r\n\t]+isOrphaned-bool="true"/, "")
+                    gsub(/[ \r\n\t]+isOrphaned="true"/, "")
+                    gsub(/[ \r\n\t]+installInitiatorUninstalled-bool="true"/, "")
+                    gsub(/[ \r\n\t]+installInitiatorUninstalled="true"/, "")
+                    gsub(/packageSource-int="[^"]*"/, "packageSource-int=\"2\"")
+                    gsub(/packageSource="[^"]*"/, "packageSource=\"2\"")
+                }
+                printf "%s</package>", $0
+            } else {
+                # header or footer of the XML file.
+                printf "%s", $0
+            }
+        }
+    ' "$xml_temp" > "$xml_temp.tmp" && mv "$xml_temp.tmp" "$xml_temp"
   fi
 
   # Rotate backups
