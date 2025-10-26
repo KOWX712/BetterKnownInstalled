@@ -110,11 +110,14 @@ process_xml() {
       ui_print "Found userId for com.android.vending: $vending_uid"
     fi
 
+    # Check if type is specified in XML
+    type="$(grep -q ".*-bool=" "$xml_temp" && echo "-bool" || echo "")"
+
     # Modify XML
     ui_print "Starting to modify XML..."
 
-    # Only modify if the package has installer attribute
-    awk -v VENDING_UID="$vending_uid" '
+    # Only modify if the package has installer attribute, revert changes to system app
+    awk -v VENDING_UID="$vending_uid" -v TYPE="$type" '
         BEGIN {
             RS="</package>"
             ORS=""
@@ -134,6 +137,17 @@ process_xml() {
                     gsub(/[ \r\n\t]+installInitiatorUninstalled="true"/, "")
                     gsub(/packageSource-int="[^"]*"/, "packageSource-int=\"2\"")
                     gsub(/packageSource="[^"]*"/, "packageSource=\"2\"")
+                }
+                # 2: Revert changes to system apps
+                if ($0 !~ /codePath=\"\/data\/app\//) {
+                    gsub(/[ \r\n\t]+installer=\"[^\"]*\"/, "")
+                    gsub(/[ \r\n\t]+installInitiator=\"[^\"]*\"/, "")
+                    gsub(/[ \r\n\t]+installerUid-int=\"[^\"]*\"/, "")
+                    gsub(/[ \r\n\t]+installerUid=\"[^\"]*\"/, "")
+                    gsub(/[ \r\n\t]+installOriginator=\"[^\"]*\"/, "")
+                    if ($0 !~ /isOrphaned/) {
+                        sub(/<package /, "<package isOrphaned" TYPE "=\"true\" ")
+                    }
                 }
                 printf "%s</package>", $0
             } else {
